@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Алатау Smart: Доступный город</title>
+    <meta
+      name="description"
+      content="Демо доступной навигации, поиска мест, сообщений о препятствиях и экстренной поддержки в Alatau Smart City."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <style>
+    :root {
+  --bg: #f6efe3;
+  --bg-strong: #fff8ee;
+  --surface: rgba(255, 250, 242, 0.88);
+  --surface-strong: #fffdf8;
+  --line: rgba(68, 47, 30, 0.12);
+  --text: #1f1b16;
+  --muted: #5f584f;
+  --accent: #0d8c7f;
+  --accent-dark: #085d55;
+  --accent-soft: rgba(13, 140, 127, 0.12);
+  --danger: #d1472f;
+  --danger-soft: rgba(209, 71, 47, 0.14);
+  --warning: #d98324;
+  --safe: #24835b;
+  --shadow: 0 18px 42px rgba(94, 63, 25, 0.1);
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 186, 92, 0.26), transparent 34%),
+    radial-gradient(circle at top right, rgba(13, 140, 127, 0.18), transparent 28%),
+    linear-gradient(180deg, #f5ecdf 0%, #f0f5f2 52%, #f4efe8 100%);
+  min-height: 100vh;
+}
+
+body.emergency-mode {
+  --bg: #fffde8;
+  --bg-strong: #fffacd;
+  --surface: #fffef6;
+  --surface-strong: #fffefc;
+  --line: rgba(0, 0, 0, 0.26);
+  --text: #111;
+  --muted: #2a2a2a;
+  --accent: #000;
+  --accent-dark: #000;
+  --accent-soft: rgba(0, 0, 0, 0.08);
+  --danger: #000;
+  --danger-soft: rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, #fffde8 0%, #fff7ba 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: 1rem;
+  z-index: 20;
+  padding: 0.8rem 1rem;
+  border-radius: 0.9rem;
+  background: var(--text);
+  color: #fff;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+}
+
+.background-blur {
+  position: fixed;
+  z-index: -1;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.45;
+}
+
+.background-blur-left {
+  top: 4rem;
+  left: -8rem;
+  background: rgba(255, 189, 81, 0.7);
+}
+
+.background-blur-right {
+  top: 12rem;
+  right: -10rem;
+  background: rgba(13, 140, 127, 0.38);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr) minmax(16rem, 18rem);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 249, 240, 0.8);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-actions {
+  display: grid;
+  grid-template-columns: 0.85fr 0.9fr 1.25fr;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  justify-self: end;
+}
+
+.topbar-actions > * {
+  width: 100%;
+  min-width: 0;
+}
+
+#current-user-pill {
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.brand-mark {
+  display: inline-flex;
+  width: 4.5rem;
+  height: 3.2rem;
+  flex: 0 0 auto;
+}
+
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(125, 88, 196, 0.22));
+}
+
+.brand strong,
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.brand small {
+  display: block;
+  color: var(--muted);
+}
+
+.main-nav {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.7rem;
+  align-items: center;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.main-nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 999px;
+  color: var(--muted);
+  text-align: center;
+  width: 100%;
+}
+
+.main-nav a:hover,
+.main-nav a:focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.emergency-toggle,
+.primary-button,
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.primary-button:hover,
+.ghost-button:hover,
+.emergency-toggle:hover,
+.primary-button:focus-visible,
+.ghost-button:focus-visible,
+.emergency-toggle:focus-visible {
+  transform: translateY(-1px);
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(13, 140, 127, 0.18);
+}
+
+.ghost-button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text);
+}
+
+.emergency-toggle {
+  background: var(--danger);
+  color: #fff;
+}
+
+main {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding-bottom: 5rem;
+}
+
+.page-section {
+  padding: 4.5rem 0 0;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.hero-copy,
+.card,
+.hero-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.hero-copy {
+  padding: 2.3rem;
+  border-radius: var(--radius-lg);
+}
+
+.hero-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+}
+
+.hero-text,
+.section-heading p,
+.metric-card p,
+.card p,
+.summary-list,
+.helper-text,
+.status-message {
+  color: var(--muted);
+}
+
+.eyebrow,
+.mini-label,
+.metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffae42, #0d8c7f);
+}
+
+h1 {
+  margin: 1rem 0;
+  font-size: clamp(2.7rem, 5vw, 4.8rem);
+  line-height: 0.97;
+  max-width: 12ch;
+}
+
+h2 {
+  margin: 0.2rem 0 0.8rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+h3 {
+  margin-top: 0;
+  font-size: 1.45rem;
+}
+
+.hero-actions,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.search-panel {
+  margin-top: 2rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid var(--line);
+}
+
+.search-label {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-weight: 600;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.8rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(13, 140, 127, 0.2);
+  border-color: var(--accent);
+}
+
+.metric-card,
+.card {
+  border-radius: var(--radius-lg);
+}
+
+.metric-card {
+  padding: 1.2rem;
+  background: var(--surface-strong);
+}
+
+.metric-card strong {
+  display: block;
+  margin: 0.4rem 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.alert-card {
+  background: linear-gradient(180deg, rgba(255, 228, 186, 0.85), rgba(255, 248, 231, 0.92));
+}
+
+.section-heading {
+  max-width: 56rem;
+  margin-bottom: 1.4rem;
+}
+
+.profile-layout,
+.map-layout,
+.place-layout,
+.support-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.card {
+  padding: 1.5rem;
+}
+
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 1.2rem 0 1.4rem;
+}
+
+.tag-button {
+  min-height: 3rem;
+  padding: 0.8rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--text);
+  text-align: left;
+}
+
+.tag-button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.summary-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.summary-list li + li {
+  margin-top: 0.55rem;
+}
+
+.info-stack {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.map-frame {
+  position: relative;
+  min-height: 25rem;
+  padding: 0;
+  border-radius: 1.6rem;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.58) 1px, transparent 1px) 0 0 / 4rem 4rem,
+    linear-gradient(rgba(255, 255, 255, 0.56) 1px, transparent 1px) 0 0 / 4rem 4rem,
+    linear-gradient(135deg, rgba(13, 140, 127, 0.2), rgba(255, 211, 128, 0.2));
+  border: 1px solid var(--line);
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #dff4f1 0%, #eef7f0 100%);
+}
+
+.leaflet-control-zoom a {
+  color: var(--text) !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.leaflet-popup-content {
+  margin: 0.9rem 1rem;
+}
+
+.live-map-toolbar {
+  margin-bottom: 0.8rem;
+}
+
+.map-note {
+  margin-bottom: 0.8rem;
+}
+
+.db-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.db-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.meta-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.map-empty {
+  min-height: 25rem;
+}
+
+.map-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.map-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.map-filter-button {
+  min-height: 2.8rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+}
+
+.map-filter-button.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.map-route {
+  position: absolute;
+  height: 0.8rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.8rem;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.route-primary {
+  top: 7rem;
+  left: 2rem;
+  width: 72%;
+  background: rgba(13, 140, 127, 0.72);
+  transform: rotate(-10deg);
+}
+
+.route-secondary {
+  top: 14rem;
+  left: 4rem;
+  width: 64%;
+  background: rgba(217, 131, 36, 0.56);
+  transform: rotate(5deg);
+}
+
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  max-width: 10rem;
+  text-align: left;
+  border: 1px solid transparent;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.map-pin:hover,
+.map-pin:focus-visible {
+  transform: translate(-50%, calc(-50% - 2px));
+}
+
+.map-pin.is-selected {
+  border-color: var(--accent-dark);
+  box-shadow: 0 0 0 4px rgba(13, 140, 127, 0.14), var(--shadow);
+}
+
+.map-pin small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.place-pin {
+  background: #fff;
+}
+
+.hazard-pin {
+  background: #fff0eb;
+  border: 1px solid rgba(209, 71, 47, 0.22);
+}
+
+.safe-pin {
+  background: #ecfff2;
+  border: 1px solid rgba(36, 131, 91, 0.22);
+}
+
+.pin-1 {
+  top: 5rem;
+  left: 62%;
+}
+
+.pin-2 {
+  top: 17rem;
+  left: 18%;
+}
+
+.pin-3 {
+  top: 3rem;
+  left: 20%;
+}
+
+.pin-4 {
+  top: 10rem;
+  left: 44%;
+}
+
+.pin-5 {
+  top: 19rem;
+  left: 58%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: var(--muted);
+}
+
+.map-inspector {
+  min-height: 25rem;
+  padding: 1.2rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.map-inspector h3 {
+  margin-bottom: 0.55rem;
+}
+
+.audience-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+
+.audience-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(13, 140, 127, 0.1);
+  color: var(--accent-dark);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.detail-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.detail-list div {
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--line);
+}
+
+.detail-list strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.map-empty {
+  display: grid;
+  place-items: center;
+  min-height: 25rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.route-summary {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.route-summary strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.map-wow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.wow-card {
+  padding: 1rem 1.1rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.wow-card h4 {
+  margin: 0 0 0.55rem;
+}
+
+.insight-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.insight-metric {
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+}
+
+.insight-metric strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.15rem;
+}
+
+.assistant-thread {
+  display: grid;
+  gap: 0.8rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.assistant-message {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.assistant-message.user {
+  background: rgba(13, 140, 127, 0.1);
+}
+
+.assistant-message.assistant {
+  background: rgba(255, 174, 66, 0.14);
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(25, 19, 11, 0.44);
+  backdrop-filter: blur(18px);
+}
+
+.auth-overlay.is-open {
+  display: flex;
+}
+
+.auth-card {
+  width: min(28rem, calc(100% - 1rem));
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  padding: 1rem;
+  border-radius: 1.6rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.user-profile-panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.field-note {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.danger-note {
+  color: var(--danger);
+}
+
+.success-note {
+  color: var(--safe);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(13, 140, 127, 0.24);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+  box-shadow: none;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+
+.place-dot {
+  background: var(--accent);
+}
+
+.hazard-dot {
+  background: var(--danger);
+}
+
+.safe-dot {
+  background: var(--safe);
+}
+
+.results-list,
+.report-feed,
+.trust-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.status-message {
+  min-height: 1.5rem;
+  margin-bottom: 0;
+}
+
+.result-card,
+.hazard-item,
+.last-meters-card {
+  border-radius: 1.2rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  padding: 1rem;
+}
+
+.result-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(13, 140, 127, 0.08);
+}
+
+.result-topline,
+.feed-header,
+.attribute-list,
+.confidence-row,
+.place-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.result-topline {
+  justify-content: space-between;
+}
+
+.score-pill,
+.trust-label,
+.status-pill,
+.mini-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.score-pill {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.trust-label {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.trust-venue {
+  background: rgba(13, 140, 127, 0.12);
+}
+
+.trust-community {
+  background: rgba(255, 174, 66, 0.18);
+}
+
+.trust-recent {
+  background: rgba(36, 131, 91, 0.12);
+}
+
+.trust-outdated {
+  background: rgba(209, 71, 47, 0.12);
+}
+
+.attribute-list {
+  margin-top: 1rem;
+}
+
+.mini-pill {
+  background: rgba(255, 174, 66, 0.18);
+}
+
+.place-card header {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.place-card-photo {
+  min-height: 13rem;
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(135deg, rgba(13, 140, 127, 0.24), rgba(255, 174, 66, 0.24)),
+    url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80")
+      center/cover;
+}
+
+.route-note,
+.safe-zone-box,
+.emergency-status {
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+}
+
+.report-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.hazard-item {
+  background: #fff8f6;
+}
+
+.hazard-item strong {
+  display: block;
+}
+
+.support-card {
+  min-height: 100%;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.4rem 0 3rem;
+  color: var(--muted);
+}
+
+@media (max-width: 1024px) {
+  .hero,
+  .profile-layout,
+  .map-layout,
+  .map-wow-grid,
+  .map-shell,
+  .place-layout,
+  .support-layout,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .main-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .topbar-actions {
+    width: auto;
+    justify-self: center;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 0.97rem;
+  }
+
+  .topbar,
+  main,
+  .footer {
+    width: min(100% - 1rem, 100%);
+  }
+
+  .topbar {
+    padding: 1rem;
+  }
+
+  .topbar-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .hero-copy,
+  .hero-panel,
+  .card {
+    padding: 1.15rem;
+  }
+
+  .search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .db-form-grid,
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar,
+  .footer {
+    flex-direction: column;
+  }
+
+  .map-frame {
+    min-height: 22rem;
+  }
+
+  .insight-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .map-pin {
+    max-width: 8rem;
+    font-size: 0.82rem;
+  }
+
+  .map-route {
+    font-size: 0.68rem;
+    padding: 0 0.5rem;
+  }
+
+  .main-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-overlay {
+    align-items: start;
+    padding: 0.5rem;
+  }
+
+  .auth-card {
+    width: min(24rem, calc(100% - 0.5rem));
+    max-height: calc(100vh - 1rem);
+    padding: 0.85rem;
+    border-radius: 1.1rem;
+  }
+}
+
+
+
+
+  </style>
+  <body>
+    <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+    <div class="background-blur background-blur-left"></div>
+    <div class="background-blur background-blur-right"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 180 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Brand logo">
+            <defs>
+              <linearGradient id="brandLogoFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#b997ff" />
+                <stop offset="100%" stop-color="#8c68dd" />
+              </linearGradient>
+            </defs>
+            <polygon points="18,46 80,46 54,86 0,86" fill="url(#brandLogoFill)" stroke="#6f53b7" stroke-width="3" />
+            <polygon points="78,18 172,18 132,88 98,88 72,130 14,130" fill="url(#brandLogoFill)" stroke="#6f53b7" stroke-width="3" />
+          </svg>
+        </span>
+        <span>
+            <strong>Alatau Smart</strong>
+            <small>Демо доступного города</small>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Основная навигация">
+        <a href="#home">Главная</a>
+        <a href="#profile">Профиль</a>
+        <a href="#map">Карта</a>
+        <a href="#place">Место</a>
+        <a href="#support">Помощь</a>
+        <a href="#assistant">Ассистент</a>
+        <a href="#admin">Админ</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="mini-pill" id="current-user-pill">Гость</span>
+        <button class="ghost-button" id="logout-button" type="button">Выйти</button>
+        <button
+          class="emergency-toggle"
+          id="emergency-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Экстренный режим
+        </button>
+      </div>
+    </header>
+
+    <div class="auth-overlay is-open" id="auth-overlay">
+      <div class="auth-card">
+        <p class="eyebrow">Добро пожаловать</p>
+        <h2>Регистрация и вход</h2>
+        <p class="helper-text">
+          Заполните данные один раз, сохраните свой профиль доступности, и ассистент будет использовать его в рекомендациях.
+        </p>
+        <form class="db-form" id="auth-form">
+          <div class="db-form-grid">
+            <div>
+              <label for="auth-name">Имя</label>
+              <input id="auth-name" name="auth-name" type="text" placeholder="Ваше имя" />
+            </div>
+            <div>
+              <label for="auth-email">Эл. почта</label>
+              <input id="auth-email" name="auth-email" type="email" placeholder="name@example.com" />
+            </div>
+          </div>
+
+          <div>
+              <label for="auth-password">Пароль</label>
+            <input id="auth-password" name="auth-password" type="password" placeholder="Придумайте пароль" />
+          </div>
+
+          <div>
+            <label for="auth-about">Расскажите о себе</label>
+            <textarea
+              id="auth-about"
+              name="auth-about"
+              rows="3"
+              placeholder="Например: я передвигаюсь на коляске, предпочитаю спокойные маршруты и мне нужны лифты."
+            ></textarea>
+          </div>
+
+          <div>
+            <span class="mini-label">Сохранить потребности</span>
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="auth-tag" value="mobility-support" checked /> Мобильность</label>
+              <label><input type="checkbox" name="auth-tag" value="blind-support" /> Незрячий / слабовидящий</label>
+              <label><input type="checkbox" name="auth-tag" value="deaf-support" /> Глухой / слабослышащий</label>
+              <label><input type="checkbox" name="auth-tag" value="sensory-friendly" /> Сенсорно комфортно</label>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="ghost-button" id="confirm-auth-button" type="button">Подтвердить и войти</button>
+            <button class="primary-button" type="submit">Войти в приложение</button>
+            <button class="ghost-button" id="demo-user-button" type="button">Войти в сохранённый аккаунт</button>
+          </div>
+          <p class="field-note" id="auth-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
+    <main id="main-content">
+      <section class="hero page-section" id="home">
+        <div class="hero-copy">
+          <p class="eyebrow">MVP Алатау Smart City</p>
+          <h1>Доступность, которая подстраивается под реальных людей, реальные места и реальные городские риски.</h1>
+          <p class="hero-text">
+            Этот сайт — рабочее демо экосистемы доступности Alatau. Пользователь может указать свои
+            потребности, искать места обычным языком, смотреть подробную информацию, сообщать
+            о препятствиях и включать экстренный режим.
+          </p>
+
+          <div class="hero-actions">
+            <button class="primary-button" id="start-demo" type="button">Запустить демо</button>
+            <a class="ghost-button" href="#profile">Создать профиль доступности</a>
+          </div>
+
+          <form class="search-panel" id="search-form">
+            <label class="search-label" for="search-input">Поиск обычным языком</label>
+            <div class="search-row">
+              <input
+                id="search-input"
+                name="search"
+                type="text"
+                value="тихое кафе с входом без ступенек"
+                aria-describedby="search-helper"
+              />
+              <button class="primary-button" type="submit">Найти</button>
+            </div>
+            <p class="helper-text" id="search-helper">
+              Например: "тихое кафе без ступенек", "библиотека для незрячих" или "центр помощи для глухих"
+            </p>
+          </form>
+        </div>
+
+        <aside class="hero-panel">
+          <div class="metric-card">
+            <span class="metric-label">Поддерживаемые группы</span>
+            <strong>12 групп</strong>
+            <p>От людей на колясках и слабовидящих пользователей до волонтёров, владельцев мест и админов.</p>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Фокус демо</span>
+            <strong>Один реальный сценарий</strong>
+            <p>Профиль, поиск, карточка места, последние 20 метров пути, предупреждения и помощь.</p>
+          </div>
+          <div class="metric-card alert-card" id="smog-alert-card">
+            <span class="metric-label">Слой Alatau</span>
+            <strong>Маршруты с учётом смога активны</strong>
+            <p>
+              Сегодня качество воздуха ухудшено. По умолчанию маршрут выбирает более спокойные
+              переходы и менее загруженные улицы.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="page-section" id="profile">
+        <div class="section-heading">
+          <p class="eyebrow">Настройка профиля</p>
+          <h2>Персональный профиль доступности</h2>
+          <p>
+            Доступность для каждого разная. Выберите важные для вас ограничения, и система
+            подстроит поиск, рекомендации мест и маршруты.
+          </p>
+        </div>
+
+        <div class="profile-layout">
+          <div class="card">
+            <h3>Выберите свои потребности</h3>
+            <div class="tag-grid" id="profile-tags" aria-live="polite"></div>
+            <button class="primary-button" id="save-profile" type="button">Сохранить настройки</button>
+            <p class="status-message" id="save-status" role="status" aria-live="polite"></p>
+          </div>
+
+          <div class="card summary-card">
+            <h3>Текущий профиль</h3>
+            <ul class="summary-list" id="profile-summary"></ul>
+            <div class="info-stack">
+              <div>
+                <span class="mini-label">Поведение поиска</span>
+                <p id="search-behavior-copy"></p>
+              </div>
+              <div>
+                <span class="mini-label">Поведение маршрута</span>
+                <p id="route-behavior-copy"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="map">
+        <div class="section-heading">
+          <p class="eyebrow">Карта и навигация</p>
+          <h2>Доступные места, препятствия и подсказки на последнем участке пути</h2>
+          <p>
+            В этом MVP используется демонстрационный район с данными о местах, временными
+            сообщениями о препятствиях и подсказками на последних 20 метрах до входа.
+          </p>
+        </div>
+
+        <div class="map-layout">
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <span class="mini-label">Распознанные фильтры</span>
+                <p id="active-filters">Поиск пока не задан.</p>
+              </div>
+              <button class="ghost-button" id="replay-demo" type="button">Повторить демо</button>
+            </div>
+
+            <div class="map-filter-row" id="map-filter-row" aria-label="Фильтры аудитории на карте"></div>
+            <p class="status-message" id="map-summary-status"></p>
+            <p class="status-message" id="interaction-status" role="status" aria-live="polite">Выберите место на карте или в списке, чтобы увидеть подробности и построить маршрут.</p>
+            <div class="button-row live-map-toolbar">
+              <button class="ghost-button" id="locate-me" type="button">Найти меня</button>
+              <button class="ghost-button" id="nearest-place" type="button">Ближайшее доступное место</button>
+              <button class="ghost-button" id="focus-alatau-center" type="button">Центр Алатау</button>
+              <button class="ghost-button" id="fit-visible-points" type="button">Показать всё</button>
+              <button class="ghost-button" id="build-route" type="button">Построить маршрут</button>
+              <button class="ghost-button" id="clear-route" type="button">Очистить маршрут</button>
+              <button class="ghost-button" id="reload-db" type="button">Обновить базу</button>
+              <button class="ghost-button" id="export-db" type="button">Экспорт данных</button>
+            </div>
+            <p class="field-note map-note" id="db-status" role="status" aria-live="polite"></p>
+
+            <div class="map-shell">
+              <div class="map-frame" id="map-frame" aria-label="Демонстрационная карта города"></div>
+              <aside class="map-inspector" id="map-inspector" aria-live="polite"></aside>
+            </div>
+            <div class="route-summary" id="route-summary" aria-live="polite">
+              <strong>Маршрут ещё не построен</strong>
+              <span>Выберите место и нажмите «Построить маршрут». Если доступна геолокация, приложение покажет время и расстояние.</span>
+            </div>
+
+            <div class="button-row" style="margin-top: 1rem;">
+              <button class="primary-button" id="generate-journey-plan" type="button">Экспресс-план поездки</button>
+              <button class="ghost-button" id="share-route" type="button">Поделиться маршрутом</button>
+            </div>
+
+            <div class="map-wow-grid">
+              <div class="wow-card" id="journey-plan" aria-live="polite">
+                <h4>Персональный план</h4>
+                <p>Соберите маршрут и нажмите «Экспресс-план поездки», чтобы получить готовый сценарий для пользователя.</p>
+              </div>
+
+              <div class="wow-card" id="district-insights" aria-live="polite">
+                <h4>Умная оценка района</h4>
+                <p>После загрузки карты здесь появится живая оценка доступности, покрытия и рисков по текущим фильтрам.</p>
+              </div>
+            </div>
+
+            <div class="legend">
+              <span><i class="legend-dot place-dot"></i> Доступные места</span>
+              <span><i class="legend-dot hazard-dot"></i> Сообщения о препятствиях</span>
+              <span><i class="legend-dot safe-dot"></i> Безопасные зоны</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Отсортированные результаты</h3>
+            <div class="results-list" id="results-list"></div>
+            <p class="status-message" id="results-status" role="status" aria-live="polite">Результаты будут показаны после загрузки карты и фильтров.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="place">
+        <div class="section-heading">
+          <p class="eyebrow">Карточка места</p>
+          <h2>Подробные данные о доступности, а не одна общая оценка</h2>
+          <p>
+            Каждая карточка показывает подробную информацию о доступности, метки доверия,
+            подсказки по маршруту и обновления по месту.
+          </p>
+        </div>
+
+        <div class="place-layout">
+          <article class="card place-card" id="place-card"></article>
+
+          <aside class="card">
+            <h3>Сообщить о временном препятствии</h3>
+            <form id="hazard-form" class="report-form">
+              <label for="hazard-title">Проблема</label>
+              <input id="hazard-title" name="title" type="text" placeholder="Например: самокат перекрыл пандус" />
+              <label for="hazard-detail">Подробности</label>
+              <textarea
+                id="hazard-detail"
+                name="detail"
+                rows="4"
+                placeholder="Опишите препятствие и где оно находится."
+              ></textarea>
+              <button class="primary-button" type="submit">Опубликовать сообщение</button>
+              <p class="field-note" id="hazard-form-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <div class="report-feed">
+              <div class="feed-header">
+                <h4>Лента препятствий</h4>
+                <span id="hazard-count"></span>
+              </div>
+              <div id="hazard-feed"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page-section" id="support">
+        <div class="section-heading">
+          <p class="eyebrow">Помощь и экстренный режим</p>
+          <h2>Помощь волонтёров, эскалация и безопасный режим при землетрясении</h2>
+          <p>
+            Блок помощи сделан простым для MVP: быстрый контакт с волонтёром,
+            экстренная эскалация, подсказки по безопасной зоне и высококонтрастный режим.
+          </p>
+        </div>
+
+        <div class="support-layout">
+          <div class="card support-card">
+            <h3>Нужна помощь сейчас?</h3>
+            <p id="support-copy">
+              Запросите сопровождение волонтёра, включите помощь с упором на текст или активируйте
+              безопасный режим, чтобы упростить интерфейс и быстрее получить маршрут к безопасной зоне.
+            </p>
+            <div class="hero-actions">
+              <a class="primary-button" href="https://wa.me/?text=%D0%9C%D0%BD%D0%B5%20%D0%BD%D1%83%D0%B6%D0%BD%D0%B0%20%D0%BF%D0%BE%D0%BC%D0%BE%D1%89%D1%8C%20%D0%BF%D0%BE%20%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%BD%D0%BE%D1%81%D1%82%D0%B8%20%D1%80%D1%8F%D0%B4%D0%BE%D0%BC%20%D1%81%20%D0%BC%D0%B5%D1%81%D1%82%D0%BE%D0%BC%20%D0%B2%20%D0%90%D0%BB%D0%B0%D1%82%D0%B0%D1%83" target="_blank" rel="noreferrer">
+                Связаться с волонтёром
+              </a>
+              <button class="ghost-button" id="escalate-button" type="button">Экстренная эскалация</button>
+            </div>
+          </div>
+
+          <div class="card support-card">
+            <h3>Состояние экстренного режима</h3>
+            <div class="emergency-status" id="emergency-status">
+              <span class="status-pill">Обычный</span>
+              <p>Безопасные зоны и предупреждения видны, но интерфейс работает в обычном режиме.</p>
+            </div>
+            <div class="safe-zone-box">
+              <span class="mini-label">Ближайшая безопасная зона</span>
+              <strong id="safe-zone-name">Безопасная зона у транзитного узла</strong>
+              <p id="safe-zone-copy">
+                Вход без ступенек с восточной стороны, тактильная линия от перехода на площади,
+                стойка волонтёров рядом с выходом B.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="admin">
+        <div class="section-heading">
+          <p class="eyebrow">Панель администратора</p>
+          <h2>Модерация и управление доверием</h2>
+          <p>
+            Для хакатона эта страница показывает демо проверки мест, модерации препятствий
+            и управления метками доверия вместо полноценной админ-панели.
+          </p>
+        </div>
+
+        <div class="admin-grid">
+          <div class="card admin-card">
+            <h3>Ожидающая заявка на место</h3>
+            <p><strong>Кафе Орбит</strong> запрашивает подтверждение владения карточкой места.</p>
+            <ul class="summary-list">
+              <li>Загружено фото входа и информация о лифте</li>
+              <li>Обновлена доступность туалета</li>
+              <li>Указана высота стойки обслуживания</li>
+            </ul>
+            <div class="button-row">
+              <button class="primary-button" id="approve-claim-button" type="button">Подтвердить заявку</button>
+              <button class="ghost-button" id="request-proof-button" type="button">Запросить доказательства</button>
+            </div>
+            <p class="field-note" id="admin-status" role="status" aria-live="polite">Выберите действие для проверки заявки или запроса дополнительных материалов.</p>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Проверка меток доверия</h3>
+            <div class="trust-stack">
+              <span class="trust-label trust-venue">Подтверждено местом</span>
+              <span class="trust-label trust-community">Подтверждено сообществом</span>
+              <span class="trust-label trust-recent">Недавно обновлено</span>
+              <span class="trust-label trust-outdated">Устарело</span>
+            </div>
+            <p>Метки доверия показываются прямо в карточках мест, чтобы пользователь понимал, каким данным можно доверять.</p>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Очередь модерации</h3>
+            <ul class="summary-list">
+              <li>2 сообщения о препятствиях ждут подтверждения</li>
+              <li>1 дублирующее редактирование места отмечено админом</li>
+              <li>0 экстренных запросов в ожидании</li>
+            </ul>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Добавить место в базу</h3>
+            <form class="db-form" id="place-form">
+              <div class="db-form-grid">
+                <div>
+                  <label for="place-name">Название места</label>
+                  <input id="place-name" name="place-name" type="text" placeholder="Например: доступная аптека" />
+                </div>
+                <div>
+                  <label for="place-category">Категория</label>
+                  <input id="place-category" name="place-category" type="text" placeholder="Клиника, центр услуг, кафе" />
+                </div>
+              </div>
+
+              <div>
+                <label for="place-address">Адрес / примечание</label>
+                <input id="place-address" name="place-address" type="text" placeholder="Район Алатау, квартал или ориентир" />
+              </div>
+
+              <div class="db-form-grid">
+                <div>
+                  <label for="place-lat">Широта</label>
+                  <input id="place-lat" name="place-lat" type="number" step="0.000001" placeholder="43.23" />
+                </div>
+                <div>
+                  <label for="place-lng">Долгота</label>
+                  <input id="place-lng" name="place-lng" type="number" step="0.000001" placeholder="76.92" />
+                </div>
+              </div>
+
+              <div>
+                <span class="mini-label">Поддерживаемые профили</span>
+                <div class="checkbox-grid">
+                  <label><input type="checkbox" name="place-tag" value="mobility-support" checked /> Мобильность</label>
+                  <label><input type="checkbox" name="place-tag" value="blind-support" /> Незрячий / слабовидящий</label>
+                  <label><input type="checkbox" name="place-tag" value="deaf-support" /> Глухой / слабослышащий</label>
+                  <label><input type="checkbox" name="place-tag" value="sensory-friendly" /> Сенсорно комфортно</label>
+                </div>
+              </div>
+
+              <div>
+                <label for="place-features">Особенности</label>
+                <textarea
+                  id="place-features"
+                  name="place-features"
+                  rows="3"
+                  placeholder="Например: пандус, доступный туалет, тактильная плитка, жестовая поддержка"
+                ></textarea>
+              </div>
+
+              <div class="button-row">
+                <button class="primary-button" type="submit">Сохранить место</button>
+                <button class="ghost-button" id="capture-map-center" type="button">Взять центр карты</button>
+              </div>
+              <p class="field-note" id="place-form-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="assistant">
+        <div class="section-heading">
+          <p class="eyebrow">Ассистент</p>
+          <h2>Ассистент по доступности для вопросов и подсказок</h2>
+          <p>
+            Спрашивайте о маршрутах, безопасных местах, ближайших препятствиях, своём профиле и о том, какое место лучше подходит под ваши потребности.
+          </p>
+        </div>
+
+        <div class="support-layout">
+          <div class="card">
+            <h3>Чат с ассистентом</h3>
+            <div class="assistant-thread" id="assistant-thread"></div>
+            <form class="report-form" id="assistant-form">
+              <label for="assistant-input">Вопрос</label>
+              <input
+                id="assistant-input"
+                name="assistant-input"
+                type="text"
+                placeholder="Например: как добраться до клиники и есть ли там пандус?"
+              />
+              <button class="primary-button" type="submit">Спросить ассистента</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3>Краткий профиль пользователя</h3>
+            <div class="user-profile-panel" id="user-profile-panel"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Сделано как веб-MVP для хакатона Alatau Smart City.</p>
+      <a href="README.md">Заметки проекта</a>
+    </footer>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="script.js"></script>
+  </body>
+</html>
